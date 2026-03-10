@@ -1,23 +1,27 @@
+import express from 'express';
 import dotenv from 'dotenv';
+import { assessmentRouter } from './api/routes';
+import { initHedera } from './hedera/client';
+
 dotenv.config();
 
-import { NexusAgent } from './agent/NexusAgent';
-import { createServer } from './api/server';
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json());
+app.use('/api', assessmentRouter);
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', agent: 'NEXUS', version: '1.0.0' });
+});
 
 async function main() {
-  console.log('🚀 Starting NEXUS — ERC-8004 Compliance Agent on Hedera');
-
-  const agent = new NexusAgent();
-  await agent.initialize();
-
-  const server = createServer(agent);
-  const port = process.env.PORT || 3000;
-
-  server.listen(port, () => {
-    console.log(`✅ NEXUS running on port ${port}`);
-    console.log(`📡 HOL Registry: registered`);
-    console.log(`🏦 HTS Token: ${agent.getTokenId()}`);
-    console.log(`🔗 Observer UI: http://localhost:${port}/ui`);
+  await initHedera();
+  app.listen(PORT, () => {
+    console.log(`NEXUS agent running on port ${PORT}`);
+    console.log(`HOL Registry: registered`);
+    console.log(`OpenClaw UCP: listening`);
   });
 }
 
