@@ -1,44 +1,28 @@
-# Contributing to nexus-hedera
+# Contributing to NEXUS Hedera
 
-Thank you for your interest in contributing!
+We welcome contributions! NEXUS is an open-source autonomous compliance agent built for the Hedera ecosystem.
 
-## Getting Started
+## Development Setup
 
-1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/nexus-hedera.git`
-3. Create a feature branch: `git checkout -b feature/my-feature`
-4. Install dependencies: `npm install`
-5. Copy `.env.example` to `.env` and fill in credentials
-6. Make your changes
-7. Run tests: `npm test`
-8. Commit with a descriptive message (DCO sign-off encouraged)
-9. Push and open a pull request
+1. Clone the repository
+2. Copy `.env.example` to `.env` and fill in your Hedera testnet credentials
+3. Get a free Hedera testnet account at [portal.hedera.com](https://portal.hedera.com)
+4. Run `npm install && npm run dev`
 
-## Commit Style
+## Architecture
 
-Use conventional commits:
-- `feat:` new feature
-- `fix:` bug fix
-- `docs:` documentation
-- `refactor:` code refactor
-- `test:` tests
+NEXUS has four main modules:
 
-## Code Style
+- `src/hedera/` — Hedera SDK wrappers (HTS NFT minting, HCS attestation)
+- `src/hol/` — HOL Registry integration (A2A agent discovery)
+- `src/openclaw/` — UCP protocol handlers (agent-to-agent commerce)
+- `src/ai/` — Claude AI compliance analysis
+- `src/api/` — REST API endpoints
 
-- TypeScript strict mode enabled
-- ESLint for linting
-- Descriptive variable names
-- Comment complex logic
+## Adding New Compliance Frameworks
 
-## DCO Sign-Off
+Edit `src/ai/compliance.ts` and add your framework to the SYSTEM_PROMPT.
 
-By contributing, you certify that your contribution is your own work and you have the right to submit it under the MIT license.
+## License
 
-Add to your commits:
-```
-Signed-off-by: Your Name <your@email.com>
-```
-
-## Questions
-
-Open an issue or reach out via the Hedera Discord.
+MIT
