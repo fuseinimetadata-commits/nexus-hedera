@@ -2,6 +2,7 @@
  * client.ts
  * Hedera SDK client initialization and health check.
  * Supports testnet (default) and mainnet via HEDERA_NETWORK env var.
+ * Key type: ECDSA_SECP256K1 (portal.hedera.com default)
  */
 import { Client, AccountId, PrivateKey, AccountBalanceQuery } from '@hashgraph/sdk';
 
@@ -13,17 +14,20 @@ export async function initHedera(): Promise<Client> {
 
   if (!accountIdStr || accountIdStr === '0.0.XXXXX') {
     throw new Error(
-      'HEDERA_ACCOUNT_ID not set. Run: npx ts-node src/scripts/create-testnet-account.ts'
+      'HEDERA_ACCOUNT_ID not set. Set it as a GitHub Actions secret or in .env'
     );
   }
-  if (!privateKeyStr || privateKeyStr.startsWith('302e...')) {
+  if (!privateKeyStr) {
     throw new Error(
-      'HEDERA_PRIVATE_KEY not set. Run: npx ts-node src/scripts/create-testnet-account.ts'
+      'HEDERA_PRIVATE_KEY not set. Set it as a GitHub Actions secret or in .env'
     );
   }
 
   const accountId = AccountId.fromString(accountIdStr);
-  const privateKey = PrivateKey.fromStringED25519(privateKeyStr);
+  // Support both ECDSA (0x-prefixed hex, portal default) and ED25519 (DER/hex)
+  const privateKey = privateKeyStr.startsWith('0x') || privateKeyStr.length === 64 || privateKeyStr.length === 66
+    ? PrivateKey.fromStringECDSA(privateKeyStr)
+    : PrivateKey.fromStringED25519(privateKeyStr);
 
   if (process.env.HEDERA_NETWORK === 'mainnet') {
     hederaClient = Client.forMainnet();
