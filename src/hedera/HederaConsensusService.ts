@@ -10,6 +10,7 @@ export interface AttestationPayload {
   standard: string;
   score: number;
   timestamp: string;
+  metadata?: Record<string, unknown>;
 }
 
 export class HederaConsensusService {
@@ -19,7 +20,7 @@ export class HederaConsensusService {
 
   async getOrCreateTopic(): Promise<string> {
     if (this.topicId) return this.topicId;
-    const saved = process.env.HCS_TOPIC_ID;
+    const saved = process.env.HEDERA_ATTESTATION_TOPIC_ID;
     if (saved) {
       this.topicId = saved;
       return saved;
