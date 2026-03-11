@@ -1,28 +1,48 @@
+/**
+ * index.ts — NEXUS Hedera Agent entrypoint
+ */
+import 'dotenv/config';
 import express from 'express';
-import dotenv from 'dotenv';
 import { assessmentRouter } from './api/routes';
 import { initHedera } from './hedera/client';
 
-dotenv.config();
-
 const app = express();
-const PORT = process.env.PORT || 3000;
-
 app.use(express.json());
-app.use('/api', assessmentRouter);
 
 // Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok', agent: 'NEXUS', version: '1.0.0' });
+app.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    agent: 'NEXUS-ERC8004',
+    version: '1.0.0',
+    network: process.env.HEDERA_NETWORK || 'testnet',
+    timestamp: new Date().toISOString(),
+  });
 });
 
-async function main() {
-  await initHedera();
-  app.listen(PORT, () => {
-    console.log(`NEXUS agent running on port ${PORT}`);
-    console.log(`HOL Registry: registered`);
-    console.log(`OpenClaw UCP: listening`);
-  });
+// API routes
+app.use('/', assessmentRouter);
+
+const PORT = process.env.PORT || 3000;
+
+async function start() {
+  try {
+    // Init Hedera only if credentials are configured
+    if (process.env.HEDERA_ACCOUNT_ID && !process.env.HEDERA_ACCOUNT_ID.includes('XXXXX')) {
+      await initHedera();
+      console.log('[NEXUS] Hedera client initialized');
+    } else {
+      console.log('[NEXUS] Hedera credentials not set — running in mock mode');
+    }
+
+    app.listen(PORT, () => {
+      console.log(`[NEXUS] Agent server running on port ${PORT}`);
+      console.log(`[NEXUS] Health: http://localhost:${PORT}/health`);
+    });
+  } catch (err) {
+    console.error('[NEXUS] Startup error:', err);
+    process.exit(1);
+  }
 }
 
-main().catch(console.error);
+start();
