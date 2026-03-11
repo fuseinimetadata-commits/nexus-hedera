@@ -1,14 +1,18 @@
 import request from 'supertest';
 import express from 'express';
 import { assessmentRouter } from '../api/routes';
+import type { ComplianceAssessment } from '../ai/compliance';
 
-// Mock the compliance module
+// Mock the compliance module with the real response shape
 jest.mock('../ai/compliance', () => ({
   runComplianceAnalysis: jest.fn().mockResolvedValue({
-    compliant: false,
-    violations: [{ rule: 'ERC-8004-3.1', severity: 'High', description: 'Test violation', recommendation: 'Fix it' }],
-    summary: 'Test summary'
-  })
+    compliance_score: 55,
+    standard: 'ERC-8004',
+    findings: ['Missing transfer restriction hook'],
+    remediation: ['Implement canTransfer() check'],
+    risk_level: 'high',
+    summary: 'Test assessment summary'
+  } satisfies ComplianceAssessment)
 }));
 
 const app = express();
@@ -22,9 +26,10 @@ describe('Assessment API', () => {
       .send({ query: 'Check this contract', standard: 'ERC-8004' });
 
     expect(res.status).toBe(200);
-    expect(res.body.violations).toBeDefined();
+    expect(typeof res.body.compliance_score).toBe('number');
+    expect(Array.isArray(res.body.findings)).toBe(true);
     expect(res.body.agent).toBe('NEXUS');
-    expect(res.body.timestamp).toBeDefined();
+    expect(typeof res.body.timestamp).toBe('string');
   });
 
   it('POST /api/assess returns 400 when query is missing', async () => {
@@ -38,12 +43,15 @@ describe('Assessment API', () => {
 
   it('POST /api/assess includes contract_address in query when provided', async () => {
     const { runComplianceAnalysis } = require('../ai/compliance');
-    const res = await request(app)
+    (runComplianceAnalysis as jest.Mock).mockClear();
+
+    await request(app)
       .post('/api/assess')
       .send({ query: 'Check compliance', contract_address: '0x1234567890abcdef' });
 
-    expect(res.status).toBe(200);
-    const callArg = (runComplianceAnalysis as jest.Mock).mock.calls.at(-1)[0];
-    expect(callArg).toContain('0x1234567890abcdef');
+    expect(runComplianceAnalysis).toHaveBeenCalledWith(
+      expect.stringContaining('0x1234567890abcdef'),
+      expect.any(String)
+    );
   });
 });

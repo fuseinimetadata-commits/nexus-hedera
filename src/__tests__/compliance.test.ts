@@ -1,4 +1,5 @@
 import { runComplianceAnalysis } from '../ai/compliance';
+import type { ComplianceAssessment } from '../ai/compliance';
 
 // Mock the Anthropic client so tests run without a real API key
 jest.mock('@anthropic-ai/sdk', () => {
@@ -9,17 +10,13 @@ jest.mock('@anthropic-ai/sdk', () => {
           content: [{
             type: 'text',
             text: JSON.stringify({
-              compliant: false,
-              violations: [
-                {
-                  rule: 'ERC-8004-3.1',
-                  severity: 'Critical',
-                  description: 'Missing KYC gate on transfer function',
-                  recommendation: 'Add identity registry check before transfer'
-                }
-              ],
-              summary: 'Contract has 1 critical compliance violation'
-            })
+              compliance_score: 40,
+              standard: 'ERC-8004',
+              findings: ['Missing KYC gate on transfer function'],
+              remediation: ['Add identity registry check before transfer'],
+              risk_level: 'critical',
+              summary: 'Contract has 1 critical compliance finding'
+            } satisfies ComplianceAssessment)
           }]
         })
       }
@@ -28,44 +25,42 @@ jest.mock('@anthropic-ai/sdk', () => {
 });
 
 describe('ComplianceEngine', () => {
-  it('detects ERC-8004 violations in non-compliant contract', async () => {
+  it('returns a ComplianceAssessment with required fields', async () => {
     const result = await runComplianceAnalysis(
       'Analyze this ERC-20 token without transfer restrictions',
       'ERC-8004'
     );
     expect(result).toBeDefined();
-    expect(result.violations).toBeDefined();
-    expect(Array.isArray(result.violations)).toBe(true);
+    expect(typeof result.compliance_score).toBe('number');
+    expect(typeof result.standard).toBe('string');
+    expect(Array.isArray(result.findings)).toBe(true);
+    expect(Array.isArray(result.remediation)).toBe(true);
+    expect(['low', 'medium', 'high', 'critical']).toContain(result.risk_level);
+    expect(typeof result.summary).toBe('string');
   });
 
-  it('returns compliant result for valid contract description', async () => {
-    // Override mock for this test
-    const anthropicModule = require('@anthropic-ai/sdk');
-    anthropicModule.default.mockImplementationOnce(() => ({
-      messages: {
-        create: jest.fn().mockResolvedValue({
-          content: [{
-            type: 'text',
-            text: JSON.stringify({
-              compliant: true,
-              violations: [],
-              summary: 'Contract is fully ERC-8004 compliant'
-            })
-          }]
-        })
-      }
-    }));
-
+  it('returns low score for non-compliant contract', async () => {
     const result = await runComplianceAnalysis(
-      'ERC-3643 compliant token with identity registry and transfer restrictions',
+      'Basic ERC-20 with no transfer restrictions or KYC',
       'ERC-8004'
     );
-    expect(result.violations).toHaveLength(0);
+    expect(result.compliance_score).toBeLessThan(100);
+    expect(result.findings.length).toBeGreaterThan(0);
   });
 
   it('includes standard in analysis context', async () => {
     const createMock = jest.fn().mockResolvedValue({
-      content: [{ type: 'text', text: JSON.stringify({ compliant: true, violations: [], summary: 'ok' }) }]
+      content: [{
+        type: 'text',
+        text: JSON.stringify({
+          compliance_score: 95,
+          standard: 'ERC-3643',
+          findings: [],
+          remediation: [],
+          risk_level: 'low',
+          summary: 'Fully compliant'
+        } satisfies ComplianceAssessment)
+      }]
     });
     const anthropicModule = require('@anthropic-ai/sdk');
     anthropicModule.default.mockImplementationOnce(() => ({
