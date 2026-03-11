@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>NEXUS Demo</title>
+<style>
+:root{--bg:#0a0e1a;--panel:#111827;--border:#1e2d45;--accent:#6366f1;--accent2:#22d3ee;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--text:#e2e8f0;--muted:#64748b;--card:#151e2d;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;min-height:100vh;}
+.header{background:var(--panel);border-bottom:1px solid var(--border);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;}
+.logo-icon{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:white;margin-right:10px;}
+.logo-text{font-size:17px;font-weight:700;display:inline;}
+.logo-sub{font-size:11px;color:var(--muted);display:block;}
+.status-pill{background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.3);border-radius:20px;padding:4px 11px;font-size:11px;display:inline-flex;align-items:center;gap:5px;}
+.pulse{width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 1.5s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px 28px 0;}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;}
+.stat-val{font-size:22px;font-weight:700;}
+.stat-label{font-size:10px;color:var(--muted);margin-top:2px;}
+.layout{display:grid;grid-template-columns:300px 1fr 260px;gap:14px;padding:14px 28px;max-width:1400px;margin:0 auto;}
+.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px;}
+.card-title{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;}
+.field{margin-bottom:11px;}
+.field label{font-size:10px;color:var(--muted);display:block;margin-bottom:4px;}
+.fv{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-size:11px;font-family:monospace;color:var(--text);}
+.badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;font-weight:600;margin-right:3px;}
+.bk{background:rgba(99,102,241,.2);color:#a5b4fc;border:1px solid rgba(99,102,241,.3);}
+.ba{background:rgba(34,211,238,.15);color:var(--accent2);border:1px solid rgba(34,211,238,.3);}
+.bu{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.3);}
+.check-btn{width:100%;padding:10px;background:linear-gradient(135deg,var(--accent),#4f46e5);border:none;border-radius:9px;color:white;font-size:13px;font-weight:600;cursor:pointer;margin-top:12px;}
+.prog-wrap{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:6px;}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:2px;width:0;transition:width 2.5s ease;}
+.rbox{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:12px;font-size:12px;min-height:120px;}
+.step{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;opacity:0;transform:translateY(5px);transition:all .35s;}
+.step.v{opacity:1;transform:translateY(0);}
+.si{width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;}
+.sc{background:rgba(16,185,129,.2);color:var(--green);border:1px solid rgba(16,185,129,.3);}
+.sw{background:rgba(245,158,11,.2);color:var(--yellow);border:1px solid rgba(245,158,11,.3);}
+.ss{background:rgba(99,102,241,.2);color:var(--accent);border:1px solid rgba(99,102,241,.3);}
+.verdict{border-radius:9px;padding:14px;margin-top:12px;display:none;}
+.verdict.ok{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);}
+.vt{font-size:17px;font-weight:700;color:var(--green);margin-bottom:5px;}
+.vd{font-size:11px;color:var(--muted);}
+.vh{font-family:monospace;font-size:10px;color:var(--accent2);margin-top:6px;}
+.flow{display:flex;align-items:center;justify-content:space-between;margin:12px 0;}
+.fn{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-size:10px;text-align:center;}
+.fa{color:var(--muted);font-size:15px;flex:1;text-align:center;}
+.fa.ok{color:var(--green);}
+.le{display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);font-size:10px;opacity:0;transition:opacity .4s;}
+.le.v{opacity:1;}
+.lt{color:var(--muted);font-family:monospace;flex-shrink:0;}
+.lg{color:var(--green);}
+.lb{color:var(--accent2);}
+.id-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px;}
+.id-row:last-child{border-bottom:none;}
+.ik{color:var(--muted);}
+.dg{width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block;margin-right:3px;}
+.dy{width:6px;height:6px;border-radius:50%;background:var(--yellow);display:inline-block;margin-right:3px;}
+.hm{background:var(--panel);border:1px solid var(--border);border-radius:7px;padding:8px 10px;margin-bottom:6px;font-size:10px;opacity:0;transition:opacity .5s;}
+.hm.v{opacity:1;}
+.ht{color:var(--accent2);font-family:monospace;font-size:9px;}
+</style>
+</head>
+<body>
+<div class="header">
+  <div style="display:flex;align-items:center;">
+    <div class="logo-icon">NX</div>
+    <div><div class="logo-text">NEXUS</div><div class="logo-sub">ERC-3643 Compliance Intelligence &bull; Solana Devnet</div></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;">
+    <span style="font-size:10px;color:var(--muted);">Agent: <span style="color:var(--accent2);font-family:monospace;">CTCrpXbi5z...kXaBv</span></span>
+    <div class="status-pill"><span class="pulse"></span>Agent Live</div>
+  </div>
+</div>
+<div class="stats">
+  <div class="stat"><div class="stat-val" id="cc" style="color:var(--green)">0</div><div class="stat-label">Checks</div></div>
+  <div class="stat"><div class="stat-val" id="ca" style="color:var(--accent2)">0</div><div class="stat-label">Approved</div></div>
+  <div class="stat"><div class="stat-val" id="ch" style="color:var(--accent)">0</div><div class="stat-label">HCS Msgs</div></div>
+</div>
+<div class="layout">
+  <div>
+    <div class="card">
+      <div class="card-title">Transfer Request</div>
+      <div class="field"><label>Sender</label><div class="fv">CTCrpXbi5zGYA4ogJzUd4WESyurFmEaN3</div><div style="margin-top:4px;"><span class="badge bk">KYC2</span><span class="badge ba">Accredited</span><span class="badge bu">US</span></div></div>
+      <div class="field"><label>Receiver</label><div class="fv">9xYzKL3mPQ7rNB2wVtD5fCjEWsUhM6Ap</div><div style="margin-top:4px;"><span class="badge bk">KYC1</span><span class="badge bu">US</span></div></div>
+      <div class="field"><label>Token</label><div class="fv">NEXUS-RWA (ERC-3643)</div></div>
+      <div class="field"><label>Amount</label><div class="fv"><span style="font-size:22px;font-weight:700;">50,000</span><div style="font-size:11px;color:var(--muted);">~ $50,000 USDC</div></div></div>
+      <button class="check-btn" onclick="run()" id="btn">Run Compliance Check</button>
+      <div class="prog-wrap"><div class="prog-bar" id="pb"></div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Identity Registry</div>
+      <div class="id-row"><span class="ik">Sender KYC</span><span><span class="dg"></span>Tier 2</span></div>
+      <div class="id-row"><span class="ik">Sender Accred.</span><span><span class="dg"></span>Active</span></div>
+      <div class="id-row"><span class="ik">Receiver KYC</span><span><span class="dy"></span>Tier 1</span></div>
+      <div class="id-row"><span class="ik">OFAC Screen</span><span><span class="dg"></span>Clear</span></div>
+      <div class="id-row"><span class="ik">Jurisdiction</span><span><span class="dg"></span>US-US OK</span></div>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <div class="card-title">AI Compliance Engine - Reasoning Trace</div>
+      <div class="rbox" id="rb"><span style="color:var(--muted);">Click Run Compliance Check to begin...</span></div>
+      <div class="verdict" id="verd">
+        <div class="vt" id="vt"></div>
+        <div class="vd" id="vd"></div>
+        <div class="vh" id="vh"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">On-Chain Execution Flow</div>
+      <div class="flow">
+        <div class="fn">Sender<br><span style="color:var(--muted);font-size:9px;">Wallet</span></div>
+        <div class="fa" id="a1">-&gt;</div>
+        <div class="fn">NEXUS<br><span style="color:var(--muted);font-size:9px;">validate_transfer</span></div>
+        <div class="fa" id="a2">-&gt;</div>
+        <div class="fn">Identity<br><span style="color:var(--muted);font-size:9px;">PDA</span></div>
+        <div class="fa" id="a3">-&gt;</div>
+        <div class="fn">SPL Token<br><span style="color:var(--muted);font-size:9px;">Transfer</span></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);">Program: <span style="font-family:monospace;color:var(--accent2);">NXS3643...Rust1</span> Network: <span style="color:var(--green);">Devnet</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">On-Chain Event Log</div>
+      <div id="el"><span style="color:var(--muted);font-size:10px;">Waiting for events...</span></div>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <div class="card-title">Hedera HCS-10 Stream</div>
+      <div style="font-size:9px;color:var(--muted);margin-bottom:8px;">Topic: <span style="font-family:monospace;color:var(--accent2);">0.0.8163590</span></div>
+      <div id="hf"><span style="color:var(--muted);font-size:10px;">Monitoring stream...</span></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Restriction Rules</div>
+      <div class="id-row"><span class="ik">Min KYC</span><span>Tier 1</span></div>
+      <div class="id-row"><span class="ik">Accredited</span><span style="color:var(--yellow);">$50K+</span></div>
+      <div class="id-row"><span class="ik">Blocked</span><span>OFAC list</span></div>
+      <div class="id-row"><span class="ik">Max Transfer</span><span>$500K</span></div>
+    </div>
+  </div>
+</div>
+<script>
+var cks=0,aps=0,hcs=0;
+function rtx(){var c='0123456789abcdef';return Array.from({length:64},function(){return c[Math.floor(Math.random()*16)]}).join('');}
+function dl(ms){return new Promise(function(r){setTimeout(r,ms)});}
+function alog(t,ev,dt,cl){
+  var el=document.getElementById('el');
+  if(el.querySelector('span'))el.innerHTML='';
+  var e=document.createElement('div');e.className='le';
+  e.innerHTML='<span class="lt">'+t+'</span><span class="'+cl+'" style="margin-left:5px;font-weight:600;">'+ev+'</span><span style="margin-left:4px;color:var(--muted);">- '+dt+'</span>';
+  el.appendChild(e);requestAnimationFrame(function(){e.classList.add('v');});
+}
+function ahcs(body){
+  var f=document.getElementById('hf');
+  if(f.querySelector('span'))f.innerHTML='';
+  hcs++;document.getElementById('ch').textContent=hcs;
+  var e=document.createElement('div');e.className='hm';
+  e.innerHTML='<div class="ht">0.0.8163590 seq#'+hcs+'</div><div style="margin-top:2px;">'+body+'</div>';
+  f.insertBefore(e,f.firstChild);requestAnimationFrame(function(){e.classList.add('v');});
+}
+function astep(icon,cls,text){
+  var b=document.getElementById('rb');
+  var e=document.createElement('div');e.className='step';
+  e.innerHTML='<div class="si '+cls+'">'+icon+'</div><span>'+text+'</span>';
+  b.appendChild(e);requestAnimationFrame(function(){e.classList.add('v');});
+}
+async function run(){
+  var btn=document.getElementById('btn');
+  btn.disabled=true;btn.textContent='Analyzing...';
+  document.getElementById('rb').innerHTML='';
+  document.getElementById('verd').style.display='none';
+  ['a1','a2','a3'].forEach(function(id){document.getElementById(id).classList.remove('ok');});
+  document.getElementById('pb').style.width='0';
+  cks++;document.getElementById('cc').textContent=cks;
+  setTimeout(function(){document.getElementById('pb').style.width='100%';},50);
+  await dl(200);
+  astep('~','ss','Fetching identity claims for sender CTCrpX...');
+  ahcs('{"type":"compliance_request","sender":"CTCrpXbi5z","amount":50000}');
+  await dl(700);
+  astep('v','sc','Sender KYC Tier 2 verified. Accreditation: Active. Jurisdiction: US');
+  await dl(600);
+  astep('~','ss','Fetching identity claims for receiver 9xYzKL...');
+  await dl(700);
+  astep('v','sc','Receiver KYC Tier 1 verified. Jurisdiction: US. OFAC: Clear');
+  await dl(500);
+  astep('~','ss','Evaluating NEXUS-RWA token restrictions...');
+  await dl(800);
+  astep('!','sw','Amount $50,000 meets Accreditation threshold - checking receiver...');
+  await dl(700);
+  astep('v','sc','KYC Tier 1 sufficient for this token class - restriction waived');
+  await dl(400);
+  astep('v','sc','All restrictions satisfied. Invoking validate_transfer instruction...');
+  await dl(600);
+  var verd=document.getElementById('verd');
+  verd.className='verdict ok';verd.style.display='block';
+  document.getElementById('vt').textContent='TRANSFER APPROVED';
+  document.getElementById('vd').textContent='All ERC-3643 checks passed. SPL transfer authorized. Proof on Hedera HCS.';
+  document.getElementById('vh').textContent='TX: '+rtx().substring(0,20)+'... Solana Devnet';
+  aps++;document.getElementById('ca').textContent=aps;
+  await dl(200);
+  document.getElementById('a1').classList.add('ok');
+  await dl(300);document.getElementById('a2').classList.add('ok');
+  await dl(300);document.getElementById('a3').classList.add('ok');
+  var ts=new Date().toTimeString().substring(0,8);
+  alog(ts,'ComplianceCheck','50,000 NEXUS-RWA initiated','lb');
+  await dl(300);alog(ts,'IdentityVerified','Sender KYC2+Accredited','lg');
+  await dl(300);alog(ts,'TransferApproved','validate_transfer APPROVE','lg');
+  await dl(300);alog(ts,'HCSPublished','Proof to topic 0.0.8163590','lb');
+  ahcs('{"type":"result","verdict":"APPROVE","proof":"'+rtx().substring(0,16)+'..."}');
+  btn.disabled=false;btn.textContent='Run Another Check';
+}
+setTimeout(run,600);
+</script>
+</body>
+</html>
