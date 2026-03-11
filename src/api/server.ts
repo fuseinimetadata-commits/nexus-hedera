@@ -1,10 +1,46 @@
 import express from 'express';
 import path from 'path';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { NexusAgent } from '../agent/NexusAgent';
+
+// Global rate limiter: 100 requests per 15 minutes per IP
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' },
+});
+
+// Stricter limiter for AI assessment endpoint
+const assessLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Assessment rate limit exceeded. Max 10 requests/minute.' },
+});
+
+// CORS — allow only expected origins in production
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
 
 export function createServer(agent: NexusAgent) {
   const app = express();
+  app.use(cors(corsOptions));
   app.use(express.json());
+  app.use(globalLimiter);
 
   // Observer UI (static)
   app.use('/ui', express.static(path.join(__dirname, '../../frontend/out')));
@@ -22,7 +58,7 @@ export function createServer(agent: NexusAgent) {
   });
 
   // A2A endpoint — agent-to-agent assessment requests
-  app.post('/a2a/assess', async (req, res) => {
+  app.post('/a2a/assess', assessLimiter, async (req, res) => {
     try {
       const result = await agent.assess(req.body);
       res.json({ success: true, ...result });
