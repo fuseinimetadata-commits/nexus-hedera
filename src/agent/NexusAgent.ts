@@ -7,7 +7,7 @@ import { OpenClawHandler } from '../openclaw/OpenClawHandler';
 
 export interface AssessmentRequest {
   standard: 'ERC-3643' | 'ERC-8004' | 'HTS';
-  subject: string;          // contract address or token ID
+  subject: string;           // contract address or token ID
   requesterAgent?: string;
   paymentTx?: string;
 }
@@ -32,9 +32,13 @@ export class NexusAgent {
   private tokenId: string = '';
 
   async initialize(): Promise<void> {
-    // Connect to Hedera
+    // Connect to Hedera — auto-detect key type (ECDSA from portal, ED25519 legacy)
     const accountId = AccountId.fromString(process.env.HEDERA_ACCOUNT_ID!);
-    const privateKey = PrivateKey.fromStringDer(process.env.HEDERA_PRIVATE_KEY!);
+    const pkStr = process.env.HEDERA_PRIVATE_KEY!;
+    const privateKey = pkStr.startsWith('0x') || pkStr.length === 64 || pkStr.length === 66
+      ? PrivateKey.fromStringECDSA(pkStr)
+      : PrivateKey.fromStringED25519(pkStr);
+
     const network = process.env.HEDERA_NETWORK || 'testnet';
 
     this.client = network === 'mainnet'
