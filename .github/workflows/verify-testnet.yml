@@ -1,0 +1,48 @@
+name: E2E Testnet Verify
+
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: false
+        default: 'Manual E2E verification'
+  push:
+    branches: [main]
+    paths:
+      - 'src/scripts/verify-testnet.ts'
+      - 'src/hedera/**'
+      - 'src/ai/**'
+
+jobs:
+  verify:
+    name: verify-testnet E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      HEDERA_ACCOUNT_ID: ${{ secrets.HEDERA_ACCOUNT_ID }}
+      HEDERA_PRIVATE_KEY: ${{ secrets.HEDERA_PRIVATE_KEY }}
+      HEDERA_NETWORK: testnet
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      HEDERA_NFT_TOKEN_ID: ${{ secrets.HEDERA_NFT_TOKEN_ID }}
+      HEDERA_ATTESTATION_TOPIC_ID: ${{ secrets.HEDERA_ATTESTATION_TOPIC_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run verify-testnet E2E
+        run: npm run verify-testnet
