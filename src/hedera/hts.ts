@@ -1,3 +1,7 @@
+/**
+ * Hedera Token Service — HTS NFT Compliance Certificate Minting
+ * Mints one NFT per compliance assessment result.
+ */
 import {
   TokenCreateTransaction,
   TokenMintTransaction,
@@ -5,61 +9,92 @@ import {
   TokenSupplyType,
   PrivateKey,
   AccountId,
-  TokenId,
 } from '@hashgraph/sdk';
 import { getHederaClient } from './client';
 
-export interface ComplianceCertificate {
+export interface MintCertificateParams {
+  contractAddress: string;
+  standard: string;
+  score: number;
+  findings: string[];
+  requesterAccount?: string;
+}
+
+export interface MintCertificateResult {
   tokenId: string;
   serialNumber: number;
-  metadata: string; // IPFS CID
+  transactionId: string;
+  metadataHash: string;
 }
 
-// Create the NEXUS compliance certificate NFT collection
-export async function createNFTCollection(): Promise<TokenId> {
-  const client = getHederaClient();
-  const operatorKey = PrivateKey.fromStringED25519(process.env.HEDERA_PRIVATE_KEY!);
-  const operatorId = AccountId.fromString(process.env.HEDERA_ACCOUNT_ID!);
+// Cache the compliance token ID after first creation
+let complianceTokenId: string | null = process.env.HTS_COMPLIANCE_TOKEN_ID || null;
 
-  const tx = await new TokenCreateTransaction()
-    .setTokenName('NEXUS Compliance Certificate')
-    .setTokenSymbol('NEXUS-CC')
-    .setTokenType(TokenType.NonFungibleUnique)
-    .setSupplyType(TokenSupplyType.Infinite)
-    .setInitialSupply(0)
-    .setTreasuryAccountId(operatorId)
-    .setAdminKey(operatorKey)
-    .setSupplyKey(operatorKey)
-    .setTokenMemo('ERC-8004 Compliance Certificates issued by NEXUS Agent')
-    .execute(client);
-
-  const receipt = await tx.getReceipt(client);
-  const tokenId = receipt.tokenId!;
-  console.log(`NFT collection created: ${tokenId.toString()}`);
-  return tokenId;
-}
-
-// Mint a compliance certificate NFT
-export async function mintComplianceCertificate(
-  tokenId: TokenId,
-  metadataCid: string
-): Promise<ComplianceCertificate> {
+/**
+ * Creates the NEXUS compliance certificate NFT collection (run once).
+ */
+export async function createComplianceTokenCollection(): Promise<string> {
   const client = getHederaClient();
   const supplyKey = PrivateKey.fromStringED25519(process.env.HEDERA_PRIVATE_KEY!);
 
-  const tx = await new TokenMintTransaction()
-    .setTokenId(tokenId)
-    .addMetadata(Buffer.from(`ipfs://${metadataCid}`))
+  const tx = await new TokenCreateTransaction()
+    .setTokenName('NEXUS Compliance Certificate')
+    .setTokenSymbol('NEXUS-CERT')
+    .setTokenType(TokenType.NonFungibleUnique)
+    .setSupplyType(TokenSupplyType.Infinite)
+    .setTreasuryAccountId(AccountId.fromString(process.env.HEDERA_ACCOUNT_ID!))
+    .setSupplyKey(supplyKey)
+    .setTokenMemo('ERC-8004 compliance certificates issued by NEXUS autonomous agent')
+    .execute(client);
+
+  const receipt = await tx.getReceipt(client);
+  const tokenId = receipt.tokenId!.toString();
+  console.log(`[HTS] Created compliance token collection: ${tokenId}`);
+  complianceTokenId = tokenId;
+  return tokenId;
+}
+
+/**
+ * Mints a compliance certificate NFT for a given assessment result.
+ */
+export async function mintComplianceCertificate(
+  params: MintCertificateParams
+): Promise<MintCertificateResult> {
+  const client = getHederaClient();
+
+  if (!complianceTokenId) {
+    throw new Error(
+      'Compliance token collection not initialized. Run createComplianceTokenCollection() first, or set HTS_COMPLIANCE_TOKEN_ID in .env'
+    );
+  }
+
+  // NFT metadata: JSON-encoded compliance result (max 100 bytes on HTS)
+  const metadata = JSON.stringify({
+    c: params.contractAddress.slice(0, 20),
+    s: params.standard,
+    sc: params.score,
+    t: Math.floor(Date.now() / 1000),
+  });
+
+  const supplyKey = PrivateKey.fromStringED25519(process.env.HEDERA_PRIVATE_KEY!);
+
+  const mintTx = await new TokenMintTransaction()
+    .setTokenId(complianceTokenId)
+    .addMetadata(Buffer.from(metadata))
     .freezeWith(client)
     .sign(supplyKey);
 
-  const response = await tx.execute(client);
+  const response = await mintTx.execute(client);
   const receipt = await response.getReceipt(client);
-  const serial = Number(receipt.serials[0]);
+  const serialNumber = receipt.serials[0].toNumber();
+  const transactionId = response.transactionId.toString();
+
+  console.log(`[HTS] Minted cert NFT: token=${complianceTokenId} serial=${serialNumber} tx=${transactionId}`);
 
   return {
-    tokenId: tokenId.toString(),
-    serialNumber: serial,
-    metadata: `ipfs://${metadataCid}`,
+    tokenId: complianceTokenId,
+    serialNumber,
+    transactionId,
+    metadataHash: Buffer.from(metadata).toString('hex'),
   };
 }

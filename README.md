@@ -1,82 +1,98 @@
-# NEXUS — Autonomous Compliance Agent for the Agentic Society
+# NEXUS — Autonomous ERC-8004 Compliance Agent
 
-[![CI](https://github.com/fuseinimetadata-commits/nexus-hedera/actions/workflows/ci.yml/badge.svg)](https://github.com/fuseinimetadata-commits/nexus-hedera/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+**Hedera Hello Future Apex Hackathon 2026**
 
-An autonomous ERC-8004 compliance agent operating natively on Hedera. Issues tokenized compliance assessments as HTS NFTs, submits on-chain attestations via HCS, and registers in the HOL Registry — all through the OpenClaw UCP protocol.
+An autonomous compliance agent that operates as a first-class OpenClaw skill on Hedera — accepting HBAR payments, issuing tokenized compliance assessments as HTS NFTs, with on-chain attestations via HCS and HOL Registry presence.
 
-> **Hedera Hello Future Apex Hackathon 2026** — OpenClaw Bounty + HOL Registry Bounty + AI & Agents Track
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-## How It Works
+## What It Does
 
-1. **Agent Commerce** — Any OpenClaw agent pays HBAR to request a compliance assessment
-2. **AI Analysis** — Claude analyzes the target contract/agent for ERC-8004/ERC-3643 compliance
-3. **NFT Certificate** — Assessment result minted as HTS NFT (permanent, transferable proof)
-4. **On-Chain Attestation** — Result submitted to HCS topic (immutable, queryable)
-5. **HOL Registry** — NEXUS registered as a standards-compliant agent via HCS-10
+1. **HOL Registry** — Registers via HCS-10 OpenConvAI, discoverable by any agent in the ecosystem
+2. **HTS NFT Certificates** — Each compliance assessment mints an NFT on Hedera Token Service
+3. **HCS Attestations** — On-chain audit trail via Hedera Consensus Service
+4. **OpenClaw UCP** — Agent-to-agent commerce: any agent can pay HBAR and receive a compliance cert
+5. **Claude AI Analysis** — Powered by Anthropic claude-opus-4-5 for ERC-3643/ERC-8004 assessment
 
 ## Quick Start
 
 ```bash
-# Install dependencies
+# Install
 npm install
 
-# Set up testnet account (generates keypair + funds from faucet)
-npx ts-node src/scripts/create-testnet-account.ts
-
-# Configure environment
+# Configure
 cp .env.example .env
-# Edit .env with your credentials from the step above
+# Edit .env with your Hedera testnet credentials
+# Get free testnet account: https://portal.hedera.com/register
 
-# Verify end-to-end connectivity
-npx ts-node src/scripts/verify-testnet.ts
+# Register in HOL Registry (run once)
+npm run register-hol
 
-# Start the agent server
+# Verify testnet setup
+npm run verify-testnet
+
+# Start server
 npm run dev
 ```
 
 ## API Endpoints
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/assess` | Request compliance assessment (OpenClaw UCP) |
-| `GET` | `/skill` | Agent capability manifest |
-| `POST` | `/a2a` | Agent-to-agent message handler |
-| `GET` | `/health` | Server + Hedera client health |
+### `POST /assess`
+Request a compliance assessment.
+
+```json
+{
+  "contract_address": "0x1234...",
+  "standard": "ERC-3643",
+  "requester_account": "0.0.12345"
+}
+```
+
+Returns: compliance score, HTS NFT certificate, HCS attestation.
+
+### `GET /skill`
+OpenClaw UCP skill manifest — describes capabilities, pricing, endpoints.
+
+### `POST /a2a`
+HCS-10 agent-to-agent connection handler.
 
 ## Tech Stack
 
-- **Hedera SDK** (`@hashgraph/sdk`) — HTS NFT minting, HCS attestations
-- **HOL Standards SDK** — HOL Registry (HCS-10), A2A protocol
-- **Anthropic Claude** — AI compliance analysis
-- **OpenClaw UCP** — Agent commerce protocol
-- **Next.js** — Observer UI (live NFT certificate feed)
-- **Vercel** — Deployment
+| Component | Technology |
+|-----------|------------|
+| Hedera SDK | `@hashgraph/sdk` |
+| HOL Registry | `@hol-org/standards-sdk` (HCS-10) |
+| AI Analysis | Anthropic claude-opus-4-5 |
+| Agent Commerce | OpenClaw UCP |
+| NFT Certificates | Hedera Token Service |
+| Audit Trail | Hedera Consensus Service |
+| Runtime | Node.js + TypeScript |
+| Deploy | Vercel |
 
-## Build Progress
+## Architecture
 
-| Milestone | Date | Status |
-|-----------|------|--------|
-| Scaffold + SDK setup | Mar 10 | ✅ Done |
-| Testnet account + HTS E2E verify | Mar 11 | ✅ Done |
-| HTS + HCS full cycle | Mar 12–13 | 🔄 Next |
-| HOL Registry integration (HCS-10) | Mar 12–13 | ⏳ Pending |
-| OpenClaw UCP payment flow | Mar 14–15 | ⏳ Pending |
-| Next.js observer UI + Vercel deploy | Mar 16–18 | ⏳ Pending |
-| Demo video | Mar 21 | ⏳ Pending |
-| Pitch deck | Mar 22 | ⏳ Pending |
-| **Submission deadline** | **Mar 23** | ⏳ |  
+```
+Agent Request (HBAR payment)
+    │
+    ▼
+[OpenClaw UCP /assess]
+    │
+    ├── Claude AI → Compliance Analysis
+    ├── HTS → Mint NFT Certificate
+    └── HCS → Post Attestation
+         │
+         ▼
+   Return: NFT token ID + HCS sequence number
 
-## Submission Targets
+Agent Discovery:
+    HOL Registry (HCS-10) → Inbound Topic → /a2a endpoint
+```
 
-- 🏆 **OpenClaw Best Skill** — $8K
-- 🏆 **HOL Registry** — $8K + 100K HOL pts
-- 🏆 **AI & Agents Main Track** — $40K pool
+## Hackathon Bounties
 
-## Demo
-
-> Live URL: _coming Mar 19_  
-> Demo Video: _coming Mar 21_
+- **OpenClaw Best Skill** ($8K) — NEXUS as a paid compliance skill
+- **HOL Registry** ($8K + 100K pts) — HCS-10 registration + A2A
+- **AI & Agents Main Track** ($40K pool) — Autonomous compliance agent
 
 ## License
 
