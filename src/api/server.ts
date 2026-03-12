@@ -22,10 +22,10 @@ const assessLimiter = rateLimit({
   message: { error: 'Assessment rate limit exceeded. Max 10 requests/minute.' },
 });
 
-// CORS — allow only expected origins in production
+// CORS \u2014 allow only expected origins in production
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
 const corsOptions: cors.CorsOptions = {
-  origin: (origin, callback) => {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
@@ -45,7 +45,7 @@ export function createServer(agent: NexusAgent) {
   // Observer UI (static)
   app.use('/ui', express.static(path.join(__dirname, '../../frontend/out')));
 
-  // MCP manifest — HOL Registry discovery
+  // MCP manifest \u2014 HOL Registry discovery
   app.get('/mcp', (req, res) => {
     res.json({
       name: 'nexus_erc3643',
@@ -57,7 +57,7 @@ export function createServer(agent: NexusAgent) {
     });
   });
 
-  // A2A endpoint — agent-to-agent assessment requests
+  // A2A endpoint \u2014 agent-to-agent assessment requests
   app.post('/a2a/assess', assessLimiter, async (req, res) => {
     try {
       const result = await agent.assess(req.body);

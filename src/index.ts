@@ -1,9 +1,9 @@
 /**
- * index.ts — NEXUS Hedera Agent entrypoint
+ * index.ts \u2014 NEXUS Hedera Agent entrypoint
  */
 import 'dotenv/config';
 import express from 'express';
-import { assessmentRouter } from './api/routes';
+import { router } from './api/routes';
 import { initHedera } from './hedera/client';
 
 const app = express();
@@ -21,7 +21,7 @@ app.get('/health', (_req, res) => {
 });
 
 // API routes
-app.use('/', assessmentRouter);
+app.use('/', router);
 
 const PORT = process.env.PORT || 3000;
 
@@ -32,7 +32,7 @@ async function start() {
       await initHedera();
       console.log('[NEXUS] Hedera client initialized');
     } else {
-      console.log('[NEXUS] Hedera credentials not set — running in mock mode');
+      console.log('[NEXUS] Hedera credentials not set \u2014 running in mock mode');
     }
 
     app.listen(PORT, () => {

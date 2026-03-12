@@ -1,7 +1,7 @@
 {
   "name": "nexus-hedera",
   "version": "1.0.0",
-  "description": "NEXUS Autonomous ERC-8004 Compliance Agent — Hedera Edition. Issues tokenized compliance certificates as HTS NFTs with HCS attestations and HOL Registry integration.",
+  "description": "NEXUS Autonomous ERC-8004 Compliance Agent \u2014 Hedera Edition. Issues tokenized compliance certificates as HTS NFTs with HCS attestations and HOL Registry integration.",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
@@ -16,12 +16,16 @@
     "@hashgraph/sdk": "^2.78.0",
     "@hashgraphonline/standards-sdk": "0.1.165",
     "@anthropic-ai/sdk": "^0.39.0",
+    "cors": "^2.8.5",
     "express": "^4.18.2",
+    "express-rate-limit": "^7.4.0",
     "dotenv": "^16.4.5",
     "axios": "^1.6.8"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/express-rate-limit": "^6.0.0",
     "@types/node": "^20.11.30",
     "typescript": "^5.4.3",
     "ts-node": "^10.9.2",

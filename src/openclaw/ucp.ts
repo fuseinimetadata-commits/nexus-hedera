@@ -2,7 +2,7 @@
 // Enables NEXUS to participate in agent-to-agent commerce
 
 import { Request, Response, Router } from 'express';
-import { runComplianceAnalysis } from '../ai/compliance';
+import { analyzeCompliance } from '../ai/compliance';
 
 export const ucpRouter = Router();
 
@@ -47,7 +47,7 @@ ucpRouter.get('/manifest', (_req: Request, res: Response) => {
   });
 });
 
-// UCP execution endpoint — other agents call this to hire NEXUS
+// UCP execution endpoint \u2014 other agents call this to hire NEXUS
 ucpRouter.post('/execute', async (req: Request, res: Response) => {
   try {
     const { capability_id, input, payment_proof } = req.body;
@@ -62,7 +62,7 @@ ucpRouter.post('/execute', async (req: Request, res: Response) => {
     // In production, verify payment_proof on Hedera
     console.log(`UCP execution request. Payment proof: ${payment_proof || 'demo'}`);
 
-    const result = await runComplianceAnalysis(
+    const result = await analyzeCompliance(
       input.query,
       input.standard || 'ERC-8004'
     );
