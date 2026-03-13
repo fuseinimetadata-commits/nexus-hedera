@@ -1,10 +1,7 @@
 // src/openclaw/UCPHandler.ts — NEXUS OpenClaw UCP Agent Commerce Layer (Milestone 3)
 
-import {
-  Client,
-  PrivateKey,
-} from "@hashgraph/sdk";
-import { HederaTokenService } from "../hedera/HederaTokenService";
+import { Client } from "@hashgraph/sdk";
+import { HederaTokenService, MintCertificateParams } from "../hedera/HederaTokenService";
 import { HederaConsensusService } from "../hedera/HederaConsensusService";
 
 export interface UCPRequest {
@@ -19,15 +16,15 @@ export interface UCPRequest {
 export interface UCPResponse {
   requestId: string;
   status: "accepted" | "rejected" | "completed";
-  nftTokenId?: string;
-  nftSerial?: number;
-  attestationId?: string;
+  nftId?: string;
+  attestationTxId?: string;
   complianceReport?: ComplianceReport;
   error?: string;
 }
 
 export interface ComplianceReport {
   score: number;
+  grade: string;
   standard: string;
   gaps: string[];
   remediations: string[];
@@ -42,15 +39,21 @@ const SERVICE_PRICES: Record<string, number> = {
   erc8004_assessment: 10,
 };
 
+function scoreToGrade(score: number): string {
+  if (score >= 90) return "A";
+  if (score >= 75) return "B";
+  if (score >= 60) return "C";
+  if (score >= 40) return "D";
+  return "F";
+}
+
 export class UCPHandler {
   constructor(private config: {
     client: Client;
     hts: HederaTokenService;
     hcs: HederaConsensusService;
     nexusAccountId: string;
-    nexusPrivateKey: string;
     nexusTopicId: string;
-    nftTokenId: string;
   }) {}
 
   async handleRequest(request: UCPRequest): Promise<UCPResponse> {
@@ -59,26 +62,36 @@ export class UCPHandler {
       const ok = await this.verifyPayment(request.agentId, request.serviceType, request.paymentTxId);
       if (!ok) return { requestId: request.requestId, status: "rejected", error: `Payment failed: ${request.paymentTxId}` };
 
+      await this.config.hts.getOrCreateCertificateToken();
+      await this.config.hcs.getOrCreateAttestationTopic();
+
       const report = await this.runComplianceAnalysis(request.serviceType, request.targetContract);
-      const { tokenId, serial } = await this.mintComplianceNFT(report, request.requestId);
 
-      await this.config.hts.transferNFT(
-        this.config.nftTokenId, serial,
-        this.config.nexusAccountId, request.agentId,
-        PrivateKey.fromString(this.config.nexusPrivateKey)
-      );
+      const mintParams: MintCertificateParams = {
+        standard: report.standard,
+        subject: request.targetContract,
+        score: report.score,
+        grade: report.grade,
+        hcsAttestation: `pending-${request.requestId.slice(-8)}`,
+        assessedAt: report.auditDate,
+      };
+      const nftId = await this.config.hts.mintCertificate(mintParams);
 
-      const attestationId = await this.publishAttestation(request, report, tokenId, serial);
+      await this.config.hts.transferCertificate(nftId, request.agentId);
 
-      if (request.callbackTopic) {
-        await this.config.hcs.publishMessage(request.callbackTopic, {
-          type: "ucp_result", requestId: request.requestId,
-          nftTokenId: tokenId, nftSerial: serial, attestationId, report,
-        });
-      }
+      const attestationTxId = await this.config.hcs.attest({
+        agentId: this.config.nexusAccountId,
+        subject: request.targetContract,
+        standard: report.standard,
+        score: report.score,
+        timestamp: report.auditDate,
+      });
 
-      return { requestId: request.requestId, status: "completed", nftTokenId: tokenId, nftSerial: serial, attestationId, complianceReport: report };
+      console.log(`[UCP] Done. NFT ${nftId} -> ${request.agentId}`);
+      return { requestId: request.requestId, status: "completed", nftId, attestationTxId, complianceReport: report };
+
     } catch (err: any) {
+      console.error(`[UCP] Error:`, err);
       return { requestId: request.requestId, status: "rejected", error: err.message };
     }
   }
@@ -90,44 +103,24 @@ export class UCPHandler {
   }
 
   private async runComplianceAnalysis(serviceType: string, targetContract: string): Promise<ComplianceReport> {
-    const skillMap: Record<string, string> = { erc3643_audit: "erc3643", mica_analysis: "mica", vara_eligibility: "vara", erc8004_assessment: "erc8004" };
+    const skillMap: Record<string, string> = {
+      erc3643_audit: "erc3643", mica_analysis: "mica",
+      vara_eligibility: "vara", erc8004_assessment: "erc8004",
+    };
     const workerUrl = process.env.NEXUS_WORKER_URL || "https://clawgig-webhook.fuseini-metadata.workers.dev";
 
     const res = await fetch(`${workerUrl}/twin`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ skill: skillMap[serviceType], query: `Audit ${targetContract} for ${serviceType}`, context: { contract_address: targetContract } }),
+      body: JSON.stringify({ skill: skillMap[serviceType], query: `Audit ${targetContract} for ${serviceType} compliance`, context: { contract_address: targetContract } }),
     });
     const result: any = await res.json();
+    const score: number = result.compliance_score ?? 72;
 
     return {
-      score: result.compliance_score ?? 72, standard: serviceType,
+      score, grade: scoreToGrade(score), standard: serviceType,
       gaps: result.gaps ?? ["Identity claim coverage < 100%", "Transfer restriction module missing"],
       remediations: result.remediations ?? ["Deploy IdentityRegistry", "Enable ComplianceModule"],
       auditDate: new Date().toISOString(), auditorAgent: this.config.nexusAccountId,
     };
-  }
-
-  private async mintComplianceNFT(report: ComplianceReport, requestId: string) {
-    const metadata = Buffer.from(JSON.stringify({
-      name: `NEXUS Compliance Certificate #${requestId.slice(-6)}`,
-      description: `ERC-8004 compliance assessment for ${report.standard}`,
-      score: report.score, standard: report.standard, auditDate: report.auditDate,
-    })).toString("base64");
-
-    const serial = await this.config.hts.mintNFT(this.config.nftTokenId, metadata);
-    return { tokenId: this.config.nftTokenId, serial };
-  }
-
-  private async publishAttestation(request: UCPRequest, report: ComplianceReport, nftTokenId: string, nftSerial: number) {
-    await this.config.hcs.publishMessage(this.config.nexusTopicId, {
-      type: "nexus_compliance_attestation", version: "1.0",
-      requestId: request.requestId, requestingAgent: request.agentId,
-      nexusAgent: this.config.nexusAccountId, serviceType: request.serviceType,
-      targetContract: request.targetContract, paymentTxId: request.paymentTxId,
-      nftCertificate: { tokenId: nftTokenId, serial: nftSerial },
-      complianceScore: report.score, gapCount: report.gaps.length,
-      timestamp: new Date().toISOString(),
-    });
-    return `nexus-attest-${request.requestId.slice(-8)}`;
   }
 }
