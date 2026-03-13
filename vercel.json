@@ -1,18 +1,11 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "src/index.ts",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "src/index.ts"
-    }
-  ],
+  "buildCommand": "cd web && npm install && npm run build",
+  "outputDirectory": "web/.next",
+  "framework": "nextjs",
+  "rootDirectory": "web",
   "env": {
-    "NODE_ENV": "production"
+    "NEXUS_API_URL": "@nexus_api_url",
+    "NEXT_PUBLIC_API_URL": "@next_public_api_url"
   }
 }
