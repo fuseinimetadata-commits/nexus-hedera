@@ -1,14 +1,20 @@
+/**
+ * HederaTokenService - Class-based HTS wrapper for NexusAgent
+ * Manages NFT collection creation, minting, and transfers.
+ */
 import {
   Client,
   TokenCreateTransaction,
+  TokenMintTransaction,
   TokenType,
   TokenSupplyType,
-  TokenMintTransaction,
   PrivateKey,
   AccountId,
+  TransferTransaction,
+  TokenId,
 } from '@hashgraph/sdk';
 
-export interface CertificateMetadata {
+export interface MintCertificateParams {
   standard: string;
   subject: string;
   score: number;
@@ -18,66 +24,102 @@ export interface CertificateMetadata {
 }
 
 export class HederaTokenService {
-  constructor(private client: Client) {}
+  private client: Client;
+  private tokenId: string | null;
 
-  async getOrCreateCertificateToken(): Promise<string> {
-    // In production, load from persistent storage
-    // For hackathon demo: create on first run
-    const tokenId = process.env.NEXUS_TOKEN_ID;
-    if (tokenId) return tokenId;
-
-    return await this.createCertificateToken();
+  constructor(client: Client) {
+    this.client = client;
+    this.tokenId = process.env.HTS_COMPLIANCE_TOKEN_ID || null;
   }
 
-  async createCertificateToken(): Promise<string> {
-    const operatorKey = PrivateKey.fromStringDer(process.env.HEDERA_PRIVATE_KEY!);
-    const operatorId = AccountId.fromString(process.env.HEDERA_ACCOUNT_ID!);
+  /**
+   * Returns existing token ID from env, or creates a new NFT collection.
+   */
+  async getOrCreateCertificateToken(): Promise<string> {
+    if (this.tokenId) {
+      console.log(`[HTS] Using existing token: ${this.tokenId}`);
+      return this.tokenId;
+    }
+
+    const pkStr = process.env.HEDERA_PRIVATE_KEY!;
+    const supplyKey = pkStr.startsWith('0x') || pkStr.length === 64 || pkStr.length === 66
+      ? PrivateKey.fromStringECDSA(pkStr)
+      : PrivateKey.fromStringED25519(pkStr);
 
     const tx = await new TokenCreateTransaction()
       .setTokenName('NEXUS Compliance Certificate')
-      .setTokenSymbol('NCC')
+      .setTokenSymbol('NEXUS-CERT')
       .setTokenType(TokenType.NonFungibleUnique)
       .setSupplyType(TokenSupplyType.Infinite)
-      .setTreasuryAccountId(operatorId)
-      .setSupplyKey(operatorKey)
-      .setAdminKey(operatorKey)
+      .setTreasuryAccountId(AccountId.fromString(process.env.HEDERA_ACCOUNT_ID!))
+      .setSupplyKey(supplyKey)
+      .setTokenMemo('ERC-8004 compliance certificates - NEXUS autonomous agent')
       .execute(this.client);
 
     const receipt = await tx.getReceipt(this.client);
-    const tokenId = receipt.tokenId!.toString();
-
-    console.log(`✅ HTS Token created: ${tokenId}`);
-    return tokenId;
+    this.tokenId = receipt.tokenId!.toString();
+    console.log(`[HTS] Created certificate token: ${this.tokenId}`);
+    return this.tokenId;
   }
 
-  async mintCertificate(metadata: CertificateMetadata): Promise<string> {
-    const operatorKey = PrivateKey.fromStringDer(process.env.HEDERA_PRIVATE_KEY!);
-    const tokenId = await this.getOrCreateCertificateToken();
+  /**
+   * Mints a compliance certificate NFT with encoded assessment metadata.
+   */
+  async mintCertificate(params: MintCertificateParams): Promise<string> {
+    if (!this.tokenId) {
+      throw new Error('[HTS] Token not initialized. Call getOrCreateCertificateToken() first.');
+    }
 
-    const metadataBytes = Buffer.from(JSON.stringify({
-      name: `NEXUS Compliance Certificate`,
-      description: `${metadata.standard} assessment for ${metadata.subject}`,
-      standard: metadata.standard,
-      score: metadata.score,
-      grade: metadata.grade,
-      subject: metadata.subject,
-      assessedAt: metadata.assessedAt,
-      hcsAttestation: metadata.hcsAttestation,
-      assessorId: 'nexus_erc3643',
+    const metadata = Buffer.from(JSON.stringify({
+      standard: params.standard,
+      subject: params.subject,
+      score: params.score,
+      grade: params.grade,
+      hcs_attestation: params.hcsAttestation,
+      assessed_at: params.assessedAt,
+      issuer: 'NEXUS-ERC8004-Agent',
+      version: '1.0',
     }));
 
     const tx = await new TokenMintTransaction()
-      .setTokenId(tokenId)
-      .addMetadata(metadataBytes)
-      .freezeWith(this.client)
-      .sign(operatorKey)
-      .then(tx => tx.execute(this.client));
+      .setTokenId(this.tokenId)
+      .addMetadata(metadata)
+      .execute(this.client);
 
     const receipt = await tx.getReceipt(this.client);
-    const serial = receipt.serials[0].toString();
-    const nftId = `${tokenId}/${serial}`;
-
-    console.log(`✅ NFT minted: ${nftId}`);
+    const serial = receipt.serials[0].toNumber();
+    const nftId = `${this.tokenId}/${serial}`;
+    console.log(`[HTS] Minted NFT: ${nftId} | HashScan: https://hashscan.io/testnet/token/${this.tokenId}/${serial}`);
     return nftId;
+  }
+
+  /**
+   * Transfers a compliance certificate NFT to the requester.
+   * Called after OpenClaw payment confirmation (Milestone 3).
+   */
+  async transferCertificate(nftId: string, toAccount: string): Promise<string> {
+    if (!this.tokenId) {
+      throw new Error('[HTS] Token not initialized.');
+    }
+    const [tokenIdStr, serialStr] = nftId.split('/');
+    const serial = parseInt(serialStr, 10);
+
+    const tx = await new TransferTransaction()
+      .addNftTransfer(
+        TokenId.fromString(tokenIdStr),
+        serial,
+        AccountId.fromString(process.env.HEDERA_ACCOUNT_ID!),
+        AccountId.fromString(toAccount)
+      )
+      .execute(this.client);
+
+    const receipt = await tx.getReceipt(this.client);
+    const txId = (receipt as any).transactionId?.toString() || 'unknown';
+    console.log(`[HTS] Transferred NFT ${nftId} to ${toAccount} | tx: ${txId}`);
+    return txId;
+  }
+
+  getTokenId(): string | null {
+    return this.tokenId;
   }
 }
