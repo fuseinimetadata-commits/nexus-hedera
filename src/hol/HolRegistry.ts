@@ -57,13 +57,14 @@ export class HolRegistry {
       }),
     };
 
+    // Encode registration payload into subject — AttestParams does not have a metadata field.
+    // The full payload is captured in the HCS message body via hcs.attest().
     await this.hcs.attest({
       agentId: 'nexus_erc3643',
-      subject: 'HOL_REGISTRY_REGISTRATION',
+      subject: JSON.stringify(registrationPayload),
       standard: 'HCS-10',
       score: 100,
       timestamp: new Date().toISOString(),
-      metadata: registrationPayload,
     });
 
     this.registered = true;
