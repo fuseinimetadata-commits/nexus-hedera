@@ -3,8 +3,12 @@
 
 import { Request, Response, Router } from 'express';
 import { analyzeCompliance } from '../ai/compliance';
+import { verifyHbarPayment } from '../hedera/HederaPaymentVerifier';
 
 export const ucpRouter = Router();
+
+/** Minimum HBAR required per UCP execution call */
+const UCP_MIN_PAYMENT_HBAR = 1;
 
 // Standard UCP service discovery endpoint
 ucpRouter.get('/manifest', (_req: Request, res: Response) => {
@@ -40,14 +44,14 @@ ucpRouter.get('/manifest', (_req: Request, res: Response) => {
         },
         pricing: {
           currency: 'HBAR',
-          per_call: 1,
+          per_call: UCP_MIN_PAYMENT_HBAR,
         },
       },
     ],
   });
 });
 
-// UCP execution endpoint \u2014 other agents call this to hire NEXUS
+// UCP execution endpoint — other agents call this to hire NEXUS
 ucpRouter.post('/execute', async (req: Request, res: Response) => {
   try {
     const { capability_id, input, payment_proof } = req.body;
@@ -59,9 +63,37 @@ ucpRouter.post('/execute', async (req: Request, res: Response) => {
       });
     }
 
-    // In production, verify payment_proof on Hedera
-    console.log(`UCP execution request. Payment proof: ${payment_proof || 'demo'}`);
+    // ── Payment verification ───────────────────────────────────────────────
+    if (!payment_proof) {
+      return res.status(402).json({
+        error: 'Payment required',
+        pricing: { amount: UCP_MIN_PAYMENT_HBAR, token: 'HBAR' },
+        payTo: process.env.HEDERA_ACCOUNT_ID,
+        instructions: 'Include Hedera transaction ID as payment_proof after sending HBAR.',
+      });
+    }
 
+    const nexusAccountId = process.env.HEDERA_ACCOUNT_ID!;
+    const paymentVerification = await verifyHbarPayment(
+      payment_proof,
+      nexusAccountId,
+      UCP_MIN_PAYMENT_HBAR
+    );
+
+    if (!paymentVerification.verified) {
+      return res.status(402).json({
+        error: 'Payment verification failed',
+        detail: paymentVerification.error,
+        txId: payment_proof,
+        required: { amount: UCP_MIN_PAYMENT_HBAR, token: 'HBAR', receiver: nexusAccountId },
+      });
+    }
+
+    console.log(
+      `[UCP] Payment verified: ${paymentVerification.amountHbar} HBAR | tx: ${payment_proof}`
+    );
+
+    // ── Execute compliance analysis ────────────────────────────────────────
     const result = await analyzeCompliance(
       input.query,
       input.standard || 'ERC-8004'
@@ -73,6 +105,12 @@ ucpRouter.post('/execute', async (req: Request, res: Response) => {
       result,
       agent: 'NEXUS',
       timestamp: new Date().toISOString(),
+      payment: {
+        verified: true,
+        txId: payment_proof,
+        amountHbar: paymentVerification.amountHbar,
+        consensusTimestamp: paymentVerification.consensusTimestamp,
+      },
     });
   } catch (error) {
     console.error('UCP execution error:', error);
