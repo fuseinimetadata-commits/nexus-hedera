@@ -35,15 +35,15 @@ export class NexusAgent {
     // Connect to Hedera — auto-detect key type (ECDSA from portal, ED25519 legacy)
     const accountId = AccountId.fromString(process.env.HEDERA_ACCOUNT_ID!);
     const pkStr = process.env.HEDERA_PRIVATE_KEY!;
-    const privateKey = pkStr.startsWith('0x') || pkStr.length === 64 || pkStr.length === 66
-      ? PrivateKey.fromStringECDSA(pkStr)
-      : PrivateKey.fromStringED25519(pkStr);
+    const privateKey =
+      pkStr.startsWith('0x') || pkStr.length === 64 || pkStr.length === 66
+        ? PrivateKey.fromStringECDSA(pkStr)
+        : PrivateKey.fromStringED25519(pkStr);
 
     const network = process.env.HEDERA_NETWORK || 'testnet';
 
-    this.client = network === 'mainnet'
-      ? Client.forMainnet()
-      : Client.forTestnet();
+    this.client =
+      network === 'mainnet' ? Client.forMainnet() : Client.forTestnet();
     this.client.setOperator(accountId, privateKey);
 
     // Initialize services
@@ -61,7 +61,7 @@ export class NexusAgent {
   }
 
   async assess(request: AssessmentRequest): Promise<AssessmentResult> {
-    console.log(`🔍 Assessing ${request.subject} against ${request.standard}`);
+    console.log(`📋 Assessing ${request.subject} against ${request.standard}`);
 
     // AI compliance analysis
     const analysis = await this.ai.analyze(request);
@@ -90,6 +90,22 @@ export class NexusAgent {
       certificateNftId: nftId,
       hcsAttestation: attestation,
     };
+  }
+
+  /**
+   * Transfer a minted compliance certificate NFT to a requester's Hedera account.
+   * Called by OpenClawHandler after HBAR payment is verified (Milestone 3).
+   *
+   * @param nftId           NFT ID in format "tokenId/serial" (e.g. "0.0.5678901/3")
+   * @param recipientAccount Hedera account ID of the requester (e.g. "0.0.9999")
+   * @returns               Transfer transaction ID
+   */
+  async transferCertificateTo(nftId: string, recipientAccount: string): Promise<string> {
+    if (!this.hts) {
+      throw new Error('[NexusAgent] HTS service not initialized. Call initialize() first.');
+    }
+    console.log(`[NexusAgent] Transferring NFT ${nftId} to ${recipientAccount}`);
+    return this.hts.transferCertificate(nftId, recipientAccount);
   }
 
   getTokenId(): string {
